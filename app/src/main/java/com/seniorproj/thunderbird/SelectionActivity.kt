@@ -1,5 +1,6 @@
 package com.seniorproj.thunderbird
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
@@ -21,21 +22,24 @@ class SelectionActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_selection)
 
-        // Configure ActionBar
+        // configure ActionBar
         actionBar = supportActionBar!!
-        actionBar.title = "Cargo"
+        actionBar.title = "Select Container and Cargo"
         actionBar.setDisplayHomeAsUpEnabled(true)
         actionBar.setDisplayShowHomeEnabled(true)
 
         // only need to query once
         val allCargo = Database.getAllCargo()!!
         val allContainers = Database.getAllContainers()!!
-        val cargoList = mutableListOf<Any>()
+
+        // other values we need
+        var cargo = Database.Cargo("", 0.0, 0.0, 0.0, 0.0)
+        var container = Database.Container("", 0.0, 0.0, 0.0, 0.0)
+        val cargoList = arrayListOf<Database.CargoPair>()
 
         // spinner for container
         val containerSpinner: Spinner = findViewById(R.id.containerSpinner)
         containerSpinner.adapter = ArrayAdapter(this@SelectionActivity, android.R.layout.simple_spinner_item, allContainers)
-        var container: Database.Container
         containerSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) { }
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -47,9 +51,6 @@ class SelectionActivity : AppCompatActivity() {
         // spinner for cargo
         val cargoSpinner: Spinner = findViewById(R.id.cargoSpinner)
         cargoSpinner.adapter = ArrayAdapter(this@SelectionActivity, android.R.layout.simple_spinner_item, allCargo)
-        var cargo = Database.Cargo(
-            "", 0.0, 0.0, 0.0, 0.0
-        )
         cargoSpinner.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onNothingSelected(parent: AdapterView<*>?) { }
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
@@ -72,15 +73,14 @@ class SelectionActivity : AppCompatActivity() {
         // add cargo button
         val confirmCargoButton: Button = findViewById(R.id.confirmCargo)
         confirmCargoButton.setOnClickListener {
-            // [{Database.Cargo, Int}, ...]
-            cargoList.add(Pair(cargo, numCargo))
+            cargoList.add(Database.CargoPair(cargo, numCargo))
             Toast.makeText(
                 this@SelectionActivity,
                 "Added x$numCargo of ${cargo.name}",
                 Toast.LENGTH_SHORT
             ).show()
             if (cargoList.isNotEmpty()) {
-                Log.d("Cargo List", "Size: ${cargoList.size}, First: ${cargoList.first()}, Last: ${cargoList.last()}")
+                Log.d("Cargo List", "$cargoList")
             }
         }
 
@@ -88,21 +88,17 @@ class SelectionActivity : AppCompatActivity() {
         val undoCargoButton: Button = findViewById(R.id.undoCargo)
         undoCargoButton.setOnClickListener {
             // remove and determine what's been removed
-            val mostRecentCargo = cargoList.removeLastOrNull() as? Pair<*, *>
-            val tempCargo: Database.Cargo
-            val tempNumCargo: Int
+            val lastCargo = cargoList.removeLastOrNull()
 
             // if we removed something, show it in a Toast message
-            if (mostRecentCargo != null) {
-                tempCargo = mostRecentCargo.first as Database.Cargo
-                tempNumCargo = mostRecentCargo.second as Int
+            if (lastCargo != null) {
                 Toast.makeText(
                     this@SelectionActivity,
-                    "Removed x$tempNumCargo of ${tempCargo.name}",
+                    "Removed x${lastCargo.number} of ${lastCargo.cargo.name}",
                     Toast.LENGTH_SHORT
                 ).show()
                 if (cargoList.isNotEmpty()) {
-                    Log.d("Cargo List", "Size: ${cargoList.size}, First: ${cargoList.first()}, Last: ${cargoList.last()}")
+                    Log.d("Cargo List", "$cargoList")
                 }
             }
             else {
@@ -119,6 +115,16 @@ class SelectionActivity : AppCompatActivity() {
         val continueButton: Button = findViewById(R.id.continueToNextScreen)
         continueButton.setOnClickListener {
             // send container and cargoList to the next screen
+            val bundle = Bundle()
+            bundle.putParcelable("container", container)
+            bundle.putParcelableArrayList("cargoList", cargoList)
+
+            // set up the next screen
+            val intent = Intent(this@SelectionActivity, DisplayActivity::class.java)
+            intent.putExtras(bundle)
+
+            // go to the next screen
+            startActivity(intent)
         }
     }
 
